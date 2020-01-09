@@ -239,7 +239,7 @@ func resourceArmKubernetesCluster() *schema.Resource {
 
 			"service_principal": {
 				Type:     schema.TypeList,
-				Required: true,
+				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -683,9 +683,8 @@ func resourceArmKubernetesClusterCreate(d *schema.ResourceData, meta interface{}
 	managedClusterIdentityRaw := d.Get("identity").([]interface{})
 	managedClusterIdentity := expandKubernetesClusterManagedClusterIdentity(managedClusterIdentityRaw)
 
-	// since the Create and Update use separate methods, there's no point extracting this out
 	servicePrincipalProfileRaw := d.Get("service_principal").([]interface{})
-	servicePrincipalProfileVal := servicePrincipalProfileRaw[0].(map[string]interface{})
+	servicePrincipalProfile := expandKubernetesClusterServicePrincipalProfile(servicePrincipalProfileRaw)
 
 	parameters := containerservice.ManagedCluster{
 		Name:     &name,
@@ -703,10 +702,7 @@ func resourceArmKubernetesClusterCreate(d *schema.ResourceData, meta interface{}
 			NetworkProfile:          networkProfile,
 			NodeResourceGroup:       utils.String(nodeResourceGroup),
 			EnablePodSecurityPolicy: utils.Bool(enablePodSecurityPolicy),
-			ServicePrincipalProfile: &containerservice.ManagedClusterServicePrincipalProfile{
-				ClientID: utils.String(servicePrincipalProfileVal["client_id"].(string)),
-				Secret:   utils.String(servicePrincipalProfileVal["client_secret"].(string)),
-			},
+			ServicePrincipalProfile: servicePrincipalProfile,
 		},
 		Identity: managedClusterIdentity,
 		Tags:     tags.Expand(t),
@@ -1485,6 +1481,19 @@ func expandKubernetesClusterManagedClusterIdentity(input []interface{}) *contain
 
 	return &containerservice.ManagedClusterIdentity{
 		Type: containerservice.ResourceIdentityType(values["type"].(string)),
+	}
+}
+
+func expandKubernetesClusterServicePrincipalProfile(input []interface{}) *containerservice.ManagedClusterServicePrincipalProfile {
+	if len(input) == 0 || input[0] == nil {
+		return nil
+	}
+
+	values := input[0].(map[string]interface{})
+
+	return &containerservice.ManagedClusterServicePrincipalProfile{
+		ClientID: utils.String(values["client_id"].(string)),
+		Secret:   utils.String(values["client_secret"].(string)),
 	}
 }
 
